@@ -95,11 +95,11 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
 
                             coroutineScope.launch(Dispatchers.IO) {
                                 try {
-                                    val requestFile = imageBytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
-                                    val facePart = MultipartBody.Part.createFormData("faceImage", "face.jpg", requestFile)
                                     val emailPart = email.toRequestBody("text/plain".toMediaTypeOrNull())
+                                    val imageRequestBody = imageBytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
+                                    val imagePart = MultipartBody.Part.createFormData("faceImage", "face.jpg", imageRequestBody)
 
-                                    val response = ApiClient.service.loginUserByFace(emailPart, facePart)
+                                    val response = ApiClient.service.loginUserByFace(emailPart, imagePart)
 
                                     if (response.isSuccessful && response.body() != null) {
                                         val token = response.body()?.token
@@ -131,7 +131,7 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
 
         errorText?.let {
             Spacer(modifier = Modifier.height(8.dp))
-            Text(text = it, color = MaterialTheme.colorScheme.error)
+            Text(it, color = MaterialTheme.colorScheme.error)
         }
     }
 }

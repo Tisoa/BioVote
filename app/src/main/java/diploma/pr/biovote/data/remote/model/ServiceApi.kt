@@ -18,16 +18,16 @@ interface ServiceApi {
     @Multipart
     @POST("auth/register")
     suspend fun registerUser(
-        @Part("email") email: RequestBody,
+        @Part("username") email: RequestBody,
         @Part("fullName") fullName: RequestBody,
         @Part faceImage: MultipartBody.Part
     ): Response<AuthResponse>
 
     @Multipart
-    @POST("auth/loginByFace")
+    @POST("auth/face_login")
     suspend fun loginUserByFace(
-        @Part("email") email: RequestBody,
-        @Part("faceVector") faceVector: MultipartBody.Part
+        @Part("username") email: RequestBody,
+        @Part faceImage: MultipartBody.Part
     ): Response<AuthResponse>
 
     @GET("polls")

@@ -1,8 +1,6 @@
 package diploma.pr.biovote.utils
 
 import android.graphics.Bitmap
-import android.graphics.ImageFormat
-import android.graphics.YuvImage
 import androidx.camera.core.ImageProxy
 import java.io.ByteArrayOutputStream
 
@@ -22,10 +20,9 @@ object CameraUtils {
         vBuffer.get(nv21, ySize, vSize)
         uBuffer.get(nv21, ySize + vSize, uSize)
 
-        val yuvImage = YuvImage(nv21, ImageFormat.NV21, image.width, image.height, null)
+        val yuvImage = android.graphics.YuvImage(nv21, android.graphics.ImageFormat.NV21, image.width, image.height, null)
         val out = ByteArrayOutputStream()
         yuvImage.compressToJpeg(android.graphics.Rect(0, 0, image.width, image.height), 100, out)
-        val imageBytes = out.toByteArray()
-        return android.graphics.BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+        return android.graphics.BitmapFactory.decodeByteArray(out.toByteArray(), 0, out.size())
     }
 }
