@@ -1,3 +1,4 @@
+package diploma.pr.biovote.ui.auth
 
 import android.graphics.Bitmap
 import androidx.camera.core.CameraSelector
@@ -30,14 +31,13 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import diploma.pr.biovote.data.remote.ApiClient
-import diploma.pr.biovote.data.remote.model.AuthResponse
 import diploma.pr.biovote.data.remote.model.TokenManager
 import diploma.pr.biovote.utils.CameraUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
-import retrofit2.Response
 import java.io.ByteArrayOutputStream
 
 @Composable
@@ -95,12 +95,11 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
 
                             coroutineScope.launch(Dispatchers.IO) {
                                 try {
-                                    val faceVector = "mocked_face_vector"
-                                    val response: Response<AuthResponse> =
-                                        ApiClient.service.loginUserByFace(
-                                            email.toRequestBody("text/plain".toMediaTypeOrNull()),
-                                            faceVector.toRequestBody("text/plain".toMediaTypeOrNull())
-                                        )
+                                    val requestFile = imageBytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
+                                    val facePart = MultipartBody.Part.createFormData("faceImage", "face.jpg", requestFile)
+                                    val emailPart = email.toRequestBody("text/plain".toMediaTypeOrNull())
+
+                                    val response = ApiClient.service.loginUserByFace(emailPart, facePart)
 
                                     if (response.isSuccessful && response.body() != null) {
                                         val token = response.body()?.token
@@ -108,19 +107,19 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
                                             TokenManager(context).saveToken("Bearer $token")
                                             onLoggedIn()
                                         } else {
-                                            errorText = "Token is missing"
+                                            errorText = "Сервер не повернув токен"
                                         }
                                     } else {
-                                        errorText = "Login failed: ${response.code()}"
+                                        errorText = "Логін не вдався: ${response.code()}"
                                     }
                                 } catch (e: Exception) {
-                                    errorText = "Error: ${e.message}"
+                                    errorText = "Помилка: ${e.message}"
                                 }
                             }
                         }
 
                         override fun onError(exception: ImageCaptureException) {
-                            errorText = "Camera capture error"
+                            errorText = "Помилка камери: ${exception.message}"
                         }
                     }
                 )

@@ -1,7 +1,12 @@
 package diploma.pr.biovote.data.remote
 
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.http.Multipart
+import retrofit2.http.POST
+import retrofit2.http.Part
 
 object ApiClient {
     val service: ServiceApi by lazy {
@@ -11,4 +16,12 @@ object ApiClient {
             .build()
             .create(ServiceApi::class.java)
     }
-}
+
+    @Multipart
+    @POST("auth/face_login")
+    suspend fun loginUserByFace(
+        @Part("username") email: RequestBody,
+        @Part faceImage: MultipartBody.Part
+    ) {
+
+    }}

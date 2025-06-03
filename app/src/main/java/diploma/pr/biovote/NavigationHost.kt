@@ -1,6 +1,5 @@
 package com.example.diplomx
 
-import LoginScreen
 import OnboardingScreen
 import VotingListScreen
 import androidx.compose.runtime.Composable
@@ -8,6 +7,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import diploma.pr.biovote.ui.auth.LoginScreen
 import diploma.pr.biovote.ui.auth.RegistrationScreen
 
 sealed class Screen(val route: String) {
