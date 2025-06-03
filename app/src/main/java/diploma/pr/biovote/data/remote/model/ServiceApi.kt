@@ -27,7 +27,7 @@ interface ServiceApi {
     @POST("auth/loginByFace")
     suspend fun loginUserByFace(
         @Part("email") email: RequestBody,
-        @Part("faceVector") faceVector: RequestBody
+        @Part("faceVector") faceVector: MultipartBody.Part
     ): Response<AuthResponse>
 
     @GET("polls")
