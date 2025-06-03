@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.4.1)
+include_directories(src/main/cpp)
+add_library(wasmedge_lib SHARED src/main/cpp/wasmedge_lib.cpp)
+find_library(log-lib log)
+target_link_libraries(wasmedge_lib ${log-lib})
+add_library(wasmedge SHARED IMPORTED)
+set_target_properties(wasmedge PROPERTIES IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/libs/wasmedge.so)
+target_link_libraries(wasmedge_lib wasmedge)
