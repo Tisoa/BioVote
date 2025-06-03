@@ -6,9 +6,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 object ApiClient {
     val service: ServiceApi by lazy {
         Retrofit.Builder()
-            .baseUrl("http://10.0.2.2:8080/") //server url
+            .baseUrl("http://10.0.2.2:8080/")
             .addConverterFactory(GsonConverterFactory.create())
             .build()
-            .create(ServiceApi::class.java)
-    }
-}
+            .create(ServiceApi::class.java)}}
