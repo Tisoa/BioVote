@@ -1,4 +1,4 @@
-package diploma.pr.biovote.data.remote.model
+package diploma.pr.biovote.data.local
 
 import android.content.Context
 import android.content.SharedPreferences

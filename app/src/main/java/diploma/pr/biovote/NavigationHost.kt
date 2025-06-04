@@ -1,14 +1,12 @@
-package com.example.diplomx
+package diploma.pr.biovote
 
-import OnboardingScreen
-import VotingListScreen
+import diploma.pr.biovote.ui.auth.LoginScreen
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import diploma.pr.biovote.ui.auth.LoginScreen
-import diploma.pr.biovote.ui.auth.RegistrationScreen
+import diploma.pr.biovote.ui.voting.VotingListScreen
 
 sealed class Screen(val route: String) {
     object Onboarding : Screen("onboarding")

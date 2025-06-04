@@ -27,62 +27,106 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
-import diploma.pr.biovote.data.remote.ApiClient
+import diploma.pr.biovote.data.remote.model.ApiClient
 import diploma.pr.biovote.data.remote.model.VoteRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import diploma.pr.biovote.utils.CameraUtils
 
 @Composable
 fun VotingDetailScreen(pollId: Int, token: String) {
     val context = LocalContext.current
     val lifecycleOwner = context as LifecycleOwner
-    val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
-    var imageCapture: ImageCapture? by remember { mutableStateOf(null) }
+    val coroutineScope = rememberCoroutineScope()
+
+    var cameraProvider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
+    var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
     var voteSubmitted by remember { mutableStateOf(false) }
     var errorText by remember { mutableStateOf<String?>(null) }
-    val coroutineScope = rememberCoroutineScope()
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            ProcessCameraProvider.getInstance(context).also { future ->
+                future.addListener({
+                    cameraProvider = future.get()
+                }, ContextCompat.getMainExecutor(context))
+            }
+        } else {
+            errorText = "Дозвіл на камеру не надано"
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            permissionLauncher.launch(Manifest.permission.CAMERA)
+        } else {
+            ProcessCameraProvider.getInstance(context).also { future ->
+                future.addListener({
+                    cameraProvider = future.get()
+                }, ContextCompat.getMainExecutor(context))
+            }
+        }
+    }
 
     Column(modifier = Modifier.padding(16.dp)) {
         Text("Голосування #$pollId", style = MaterialTheme.typography.headlineSmall)
         Spacer(modifier = Modifier.height(12.dp))
 
-        AndroidView(factory = { ctx ->
-            val previewView = PreviewView(ctx)
-            val cameraProvider = cameraProviderFuture.get()
-            val preview = Preview.Builder().build().also {
-                it.setSurfaceProvider(previewView.surfaceProvider)
-            }
-            val capture = ImageCapture.Builder().build()
-            imageCapture = capture
-            val cameraSelector = androidx.camera.core.CameraSelector.DEFAULT_FRONT_CAMERA
+        cameraProvider?.let { provider ->
+            AndroidView(factory = { ctx ->
+                val previewView = PreviewView(ctx)
+                val preview = Preview.Builder().build().apply {
+                    setSurfaceProvider(previewView.surfaceProvider)
+                }
+                val capture = ImageCapture.Builder().build()
+                imageCapture = capture
 
-            cameraProvider.unbindAll()
-            cameraProvider.bindToLifecycle(
-                lifecycleOwner,
-                cameraSelector,
-                preview,
-                capture
-            )
-            previewView
-        }, modifier = Modifier
-            .fillMaxWidth()
-            .height(300.dp))
+                val selector = CameraSelector.DEFAULT_FRONT_CAMERA
+                provider.unbindAll()
+                provider.bindToLifecycle(lifecycleOwner, selector, preview, capture)
+
+                previewView
+            }, modifier = Modifier
+                .fillMaxWidth()
+                .height(300.dp))
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
         Button(
             onClick = {
-                val fileName = "vote_face_${System.currentTimeMillis()}.jpg"
-                imageCapture?.takePicture(ContextCompat.getMainExecutor(context),
+                val capture = imageCapture
+                if (capture == null) {
+                    errorText = "Камера не готова"
+                    return@Button
+                }
+
+                capture.takePicture(
+                    ContextCompat.getMainExecutor(context),
                     object : ImageCapture.OnImageCapturedCallback() {
                         override fun onCaptureSuccess(image: ImageProxy) {
-                            val bitmap = image.toBitmap()
+                            val bitmap = CameraUtils.imageProxyToBitmap(image)
                             image.close()
+
                             val bos = ByteArrayOutputStream()
                             bitmap.compress(Bitmap.CompressFormat.JPEG, 100, bos)
                             val imageBytes = bos.toByteArray()
-                            val voteRequest = VoteRequest(pollId = pollId, answerIds = listOf(1)) // Replace with real answer
+                            val voteRequest = VoteRequest(
+                                pollId = pollId,
+                                answerIds = listOf(1) // Replace with actual answer logic
+                            )
 
                             coroutineScope.launch(Dispatchers.IO) {
                                 try {
@@ -90,18 +134,19 @@ fun VotingDetailScreen(pollId: Int, token: String) {
                                     if (response.isSuccessful) {
                                         voteSubmitted = true
                                     } else {
-                                        errorText = "Не вдалося надіслати голос"
+                                        errorText = "Не вдалося надіслати голос: ${'$'}{response.code()}"
                                     }
                                 } catch (e: Exception) {
-                                    errorText = "Помилка: ${e.message}"
+                                    errorText = "Помилка: ${'$'}{e.message}"
                                 }
                             }
                         }
 
                         override fun onError(exception: ImageCaptureException) {
-                            errorText = "Camera error"
+                            errorText = "Помилка зйомки: ${'$'}{exception.message}"
                         }
-                    })
+                    }
+                )
             },
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -117,8 +162,4 @@ fun VotingDetailScreen(pollId: Int, token: String) {
             Text(it, color = MaterialTheme.colorScheme.error)
         }
     }
-}
-
-private fun Any.submitVote(token: String, voteRequest: VoteRequest): Any {
-    TODO("Not yet implemented")
 }

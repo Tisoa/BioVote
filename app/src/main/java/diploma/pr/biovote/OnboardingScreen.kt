@@ -1,3 +1,4 @@
+package diploma.pr.biovote
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column

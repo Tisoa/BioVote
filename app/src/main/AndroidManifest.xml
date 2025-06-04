@@ -1,27 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.example.diplomx">
 
-    <!-- Дозволи -->
-    <uses-feature
-        android:name="android.hardware.camera"
-        android:required="false" />
-
+    <!-- Камера, Інтернет, Звук -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+
+    <uses-feature android:name="android.hardware.camera.any" />
+    <uses-feature android:name="android.hardware.camera.front" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera.any"
+        tools:ignore="DuplicateUsesFeature" />
 
     <application
+        android:name="diploma.pr.biovote.utils.BioVoteApplication"
         android:allowBackup="true"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:label="BioVote"
         android:theme="@style/Theme.AppCompat.DayNight.NoActionBar"
         android:supportsRtl="true">
 
         <activity
-            android:name=".MainActivity"
+            android:name="diploma.pr.biovote.MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -29,5 +36,4 @@
             </intent-filter>
         </activity>
     </application>
-
 </manifest>

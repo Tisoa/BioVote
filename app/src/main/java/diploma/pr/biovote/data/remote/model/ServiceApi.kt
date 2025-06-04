@@ -1,8 +1,5 @@
-package diploma.pr.biovote.data.remote
+package diploma.pr.biovote.data.remote.model
 
-import diploma.pr.biovote.data.remote.model.AuthResponse
-import diploma.pr.biovote.data.remote.model.PollResponse
-import diploma.pr.biovote.data.remote.model.VoteRequest
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import retrofit2.Response
@@ -33,7 +30,7 @@ interface ServiceApi {
     @GET("polls")
     suspend fun getPolls(
         @Header("Authorization") token: String
-    ): Response<List<PollResponse>>
+    ): Response<List<ApiService.PollResponse>>
 
     @POST("polls/vote")
     suspend fun submitVote(
