@@ -5,14 +5,14 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.core.view.WindowCompat
 
-
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Let your content draw behind system bars
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
         setContent {
-            NavigationHost() // Запускає всю навігацію
+            NavigationHost()
         }
     }
 }

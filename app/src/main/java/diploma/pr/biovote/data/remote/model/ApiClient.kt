@@ -1,21 +1,27 @@
 package diploma.pr.biovote.data.remote.model
 
 import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 object ApiClient {
+    // On the Android emulator, 10.0.2.2 routes to your host machine
+    private const val BASE_URL = "http://10.0.2.2:8081/"
 
-    private const val BASE_URL = "http://192.168.0.102:8081/" // або інший твій сервер
+    private val logging = HttpLoggingInterceptor().apply {
+        level = HttpLoggingInterceptor.Level.BODY
+    }
 
-    private val okHttpClient = OkHttpClient.Builder()
+    private val okHttp = OkHttpClient.Builder()
+        .addInterceptor(logging)
         .build()
 
-    private val retrofit: Retrofit = Retrofit.Builder()
+    // Expose your ApiService as "service"
+    val service: ApiService = Retrofit.Builder()
         .baseUrl(BASE_URL)
-        .client(okHttpClient)
+        .client(okHttp)
         .addConverterFactory(GsonConverterFactory.create())
         .build()
-
-    val service: ApiService = retrofit.create(ApiService::class.java)
+        .create(ApiService::class.java)
 }

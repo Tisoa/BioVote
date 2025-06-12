@@ -19,6 +19,9 @@ androidx-core = "1.16.0"
 androidx-lifecycle = "2.9.0"
 androidx-activity = "1.10.1"
 logging-interceptor = "4.12.0"
+logging-interceptor-version = "4.9.3"
+okhttp = "4.12.0"
+okhttp-urlconnection = "4.9.3"
 retrofit = "2.9.0"
 room = "2.7.1"
 junit = "4.13.2"
@@ -66,6 +69,9 @@ kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-c
 kotlinx-coroutines-play-services = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-play-services", version.ref = "kotlinx-coroutines-play-services" }
 kotlinx-coroutines-play-services-v173 = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-play-services", version.ref = "kotlinx-coroutines-play-services-version" }
 logging-interceptor = { module = "com.squareup.okhttp3:logging-interceptor", version.ref = "logging-interceptor" }
+logging-interceptor-v493 = { module = "com.squareup.okhttp3:logging-interceptor", version.ref = "logging-interceptor-version" }
+okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+okhttp-urlconnection = { module = "com.squareup.okhttp3:okhttp-urlconnection", version.ref = "okhttp-urlconnection" }
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }

@@ -62,6 +62,8 @@ android {
 }
 
 dependencies {
+
+    implementation (libs.logging.interceptor.v493)
     // Jetpack Compose
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
@@ -115,6 +117,18 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.core.ktx)
 
+
+    // Retrofit + Gson
+    implementation (libs.retrofit)
+    implementation (libs.converter.gson)
+
+// OkHttp Logging
+    //noinspection GradleDependency,GradleDependency
+    implementation (libs.okhttp)
+    implementation (libs.logging.interceptor)
+
+// Корисні конвертери для multipart
+    implementation (libs.okhttp.urlconnection)
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

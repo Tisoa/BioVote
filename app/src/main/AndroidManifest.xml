@@ -6,6 +6,7 @@
     <!-- Камера, Інтернет, Звук -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
@@ -21,6 +22,7 @@
 
     <application
         android:name="diploma.pr.biovote.utils.BioVoteApplication"
+        android:usesCleartextTraffic="true"
         android:allowBackup="true"
         android:networkSecurityConfig="@xml/network_security_config"
         android:label="BioVote"
