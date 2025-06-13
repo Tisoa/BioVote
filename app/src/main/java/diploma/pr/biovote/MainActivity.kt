@@ -8,7 +8,7 @@ import androidx.core.view.WindowCompat
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Let your content draw behind system bars
+        // Дозволяємо малюванню під системними вікнами
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
         setContent {

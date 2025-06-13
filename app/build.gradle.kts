@@ -128,6 +128,16 @@ dependencies {
     implementation (libs.okhttp)
     implementation (libs.logging.interceptor)
 
+    implementation (libs.androidx.ui)
+    implementation (libs.androidx.material3)         // або відповідна версія Material3
+    implementation (libs.androidx.navigation.compose)
+    implementation (libs.androidx.camera.core.v140)
+    implementation (libs.androidx.camera.camera2.v140)
+    implementation (libs.androidx.camera.lifecycle)
+    implementation (libs.androidx.camera.view.v140)
+
+
+
 // Корисні конвертери для multipart
     implementation (libs.okhttp.urlconnection)
     // Testing

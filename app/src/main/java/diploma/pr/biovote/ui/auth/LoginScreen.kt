@@ -2,30 +2,18 @@ package diploma.pr.biovote.ui.auth
 
 import android.Manifest
 import android.graphics.Bitmap
+import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.camera.core.ImageCapture
-import androidx.camera.core.ImageCaptureException
-import androidx.camera.core.ImageProxy
+import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -34,7 +22,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import com.google.common.util.concurrent.ListenableFuture
 import diploma.pr.biovote.data.local.TokenManager
-import diploma.pr.biovote.data.remote.model.ApiClient
+import diploma.pr.biovote.data.repository.AuthRepository
 import diploma.pr.biovote.utils.CameraUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -46,135 +34,135 @@ import java.io.ByteArrayOutputStream
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-@Composable
-fun LoginScreen(onLoggedIn: () -> Unit) {
-    val context = LocalContext.current
-    val lifecycleOwner = context as LifecycleOwner
-    val coroutineScope = rememberCoroutineScope()
-
-    var email by rememberSaveable { mutableStateOf("") }
-    var errorText by remember { mutableStateOf<String?>(null) }
-    var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
-    val previewView = remember { PreviewView(context) }
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (!granted) errorText = "Дозвіл на камеру не надано"
-    }
-
-    // await для ListenableFuture<T>
-    suspend fun <T> ListenableFuture<T>.await(): T = suspendCancellableCoroutine { cont ->
+/* -------- маленька утиліта -------- */
+private suspend fun <T> ListenableFuture<T>.await(): T =
+    suspendCancellableCoroutine { cont ->
         addListener({
-            try {
-                cont.resume(get())
-            } catch (e: Exception) {
-                cont.resumeWithException(e)
-            }
+            try { cont.resume(get()) } catch (e: Exception) { cont.resumeWithException(e) }
         }, Runnable::run)
     }
 
-    LaunchedEffect(Unit) {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) !=
-            android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            permissionLauncher.launch(Manifest.permission.CAMERA)
-        } else {
-            try {
-                val cameraProvider = ProcessCameraProvider.getInstance(context).await()
-                val preview = androidx.camera.core.Preview.Builder().build().also {
-                    it.setSurfaceProvider(previewView.surfaceProvider)
-                }
-                val captureUseCase = ImageCapture.Builder().build()
-                imageCapture = captureUseCase
+/* -------- Composable -------- */
+@Composable
+fun LoginScreen(onLoggedIn: () -> Unit) {
 
-                val cameraSelector = androidx.camera.core.CameraSelector.DEFAULT_FRONT_CAMERA
-                cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, preview, captureUseCase)
+    val ctx           = LocalContext.current
+    val lifecycle     = ctx as LifecycleOwner
+    val scope         = rememberCoroutineScope()
+    val repo          = remember { AuthRepository() }
+
+    var email      by rememberSaveable { mutableStateOf("") }
+    var errTxt     by remember { mutableStateOf<String?>(null) }
+    var imageCap   by remember { mutableStateOf<ImageCapture?>(null) }
+    val previewRef = remember { PreviewView(ctx) }
+
+    /* ---------- permission ---------- */
+    val permLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { if (!it) errTxt = "Не надано дозвіл на камеру" }
+
+    LaunchedEffect(Unit) {
+        if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA)
+            != PackageManager.PERMISSION_GRANTED
+        ) permLauncher.launch(Manifest.permission.CAMERA)
+        else {
+            try {
+                val provider = ProcessCameraProvider.getInstance(ctx).await()
+                val preview  = Preview.Builder().build().apply {
+                    setSurfaceProvider(previewRef.surfaceProvider)
+                }
+                val capture  = ImageCapture.Builder().build()
+                imageCap = capture
+                provider.unbindAll()
+                provider.bindToLifecycle(
+                    lifecycle,
+                    CameraSelector.DEFAULT_FRONT_CAMERA,
+                    preview, capture
+                )
             } catch (e: Exception) {
-                errorText = "Помилка ініціалізації камери: ${e.message}"
+                errTxt = "Помилка камери: ${e.message}"
             }
         }
     }
 
-    Column(modifier = Modifier.padding(16.dp)) {
-        TextField(
+    /* ---------- UI ---------- */
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+    ) {
+        OutlinedTextField(
             value = email,
             onValueChange = { email = it },
             label = { Text("Email") },
+            singleLine = true,
             modifier = Modifier.fillMaxWidth()
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(Modifier.height(12.dp))
 
         AndroidView(
-            factory = { previewView },
+            factory  = { previewRef },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(300.dp)
+                .height(320.dp)
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(Modifier.height(12.dp))
 
         Button(
-            modifier = Modifier.fillMaxWidth(),
             onClick = {
-                if (email.isBlank()) {
-                    errorText = "Введіть email"
-                    return@Button
-                }
-                if (imageCapture == null) {
-                    errorText = "Камера не ініціалізована"
-                    return@Button
-                }
+                if (email.isBlank()) { errTxt = "Введіть email"; return@Button }
+                val cap = imageCap ?: return@Button.also { errTxt = "Камера не готова" }
 
-                imageCapture?.takePicture(ContextCompat.getMainExecutor(context),
+                cap.takePicture(
+                    ContextCompat.getMainExecutor(ctx),
                     object : ImageCapture.OnImageCapturedCallback() {
-                        override fun onCaptureSuccess(image: ImageProxy) {
-                            val bitmap = CameraUtils.imageProxyToBitmap(image)
-                            image.close()
+                        override fun onCaptureSuccess(img: ImageProxy) {
+                            val bmp = CameraUtils.imageProxyToBitmap(img).also { img.close() }
 
-                            val bos = ByteArrayOutputStream()
-                            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, bos)
-                            val imageBytes = bos.toByteArray()
+                            /* --- Multipart --- */
+                            val jpg = ByteArrayOutputStream()
+                                .apply { bmp.compress(Bitmap.CompressFormat.JPEG, 90, this) }
+                                .toByteArray()
 
-                            coroutineScope.launch(Dispatchers.IO) {
+                            scope.launch(Dispatchers.IO) {
                                 try {
-                                    val facePart = MultipartBody.Part.createFormData(
-                                        "faceImage",
-                                        "face.jpg",
-                                        imageBytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
+                                    val facePart  = MultipartBody.Part.createFormData(
+                                        "faceImage", "face.jpg",
+                                        jpg.toRequestBody("image/jpeg".toMediaTypeOrNull())
                                     )
-                                    val emailPart = email.toRequestBody("text/plain".toMediaTypeOrNull())
-                                    val response = ApiClient.service.loginUserByFace(emailPart, facePart)
+                                    val resp = repo.login(email, facePart)
 
-                                    if (response.isSuccessful) {
-                                        val token = response.body()?.token
-                                        if (token != null) {
-                                            TokenManager(context).saveToken(token)
+                                    if (resp.isSuccessful) {
+                                        val body = resp.body()
+                                        if (body?.success == true && body.message.isNotBlank()) {
+                                            TokenManager(ctx).saveToken(body.message)  //  ⬅️  JWT
                                             launch(Dispatchers.Main) { onLoggedIn() }
                                         } else {
-                                            errorText = "Сервер не повернув токен"
+                                            errTxt = "Сервер не надав токен"
                                         }
                                     } else {
-                                        errorText = "Помилка входу: ${response.code()}"
+                                        errTxt = "HTTP ${resp.code()}"
                                     }
                                 } catch (e: Exception) {
-                                    errorText = "Помилка: ${e.localizedMessage ?: e.message}"
+                                    errTxt = "Помилка: ${e.localizedMessage ?: e.message}"
                                 }
                             }
                         }
 
-                        override fun onError(exception: ImageCaptureException) {
-                            errorText = "Помилка зйомки: ${exception.message}"
+                        override fun onError(exc: ImageCaptureException) {
+                            errTxt = "Помилка зйомки: ${exc.message}"
                         }
-                    })
-            }
-        ) {
-            Text("Увійти")
-        }
+                    }
+                )
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Увійти") }
 
-        errorText?.let {
-            Spacer(modifier = Modifier.height(8.dp))
+        errTxt?.let {
+            Spacer(Modifier.height(8.dp))
             Text(it, color = MaterialTheme.colorScheme.error)
         }
     }

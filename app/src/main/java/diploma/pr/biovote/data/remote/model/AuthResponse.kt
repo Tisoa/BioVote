@@ -1,11 +1,10 @@
 package diploma.pr.biovote.data.remote.model
 
 /**
- * Єдина відповідь бекенду після реєстрації / логіну.
+ * /auth/face_login
  */
 data class AuthResponse(
-    val id: Long,
-    val username: String,
-    val fullName: String,
-    val token: String
+    val success: Boolean,
+    /** бекенд кладe сам JWT-token саме сюди */
+    val message: String
 )
