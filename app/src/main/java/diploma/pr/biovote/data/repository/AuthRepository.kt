@@ -1,25 +1,32 @@
+
 package diploma.pr.biovote.data.repository
 
-import android.util.Log
 import diploma.pr.biovote.data.remote.model.ApiClient
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import diploma.pr.biovote.data.remote.model.AuthResponse
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
-import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import retrofit2.Response
 
 class AuthRepository {
+
+    private val api = ApiClient.service
+
     suspend fun register(
-        username: String,
+        email: String,
         fullName: String,
-        imagePart: MultipartBody.Part
-    ) = try {
-        val userRb = username.toRequestBody("text/plain".toMediaTypeOrNull())
-        val nameRb = fullName.toRequestBody("text/plain".toMediaTypeOrNull())
-        val resp = ApiClient.service.registerUser(userRb, nameRb, imagePart)
-        Log.d("AuthRepo", "register → $resp")
-        resp
-    } catch (e: Exception) {
-        Log.e("AuthRepo", "exception", e)
-        throw e
+        face: MultipartBody.Part
+    ): Response<AuthResponse> {
+        val emailBody    = email.toRequestBody("text/plain".toMediaType())
+        val fullNameBody = fullName.toRequestBody("text/plain".toMediaType())
+        return api.registerUser(emailBody, fullNameBody, face)
+    }
+
+    suspend fun login(
+        email: String,
+        face: MultipartBody.Part
+    ): Response<AuthResponse> {
+        val emailBody = email.toRequestBody("text/plain".toMediaType())
+        return api.loginUserByFace(emailBody, face)
     }
 }

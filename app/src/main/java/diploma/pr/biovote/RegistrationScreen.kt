@@ -5,188 +5,142 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.camera.core.CameraSelector
-import androidx.camera.core.ImageCapture
-import androidx.camera.core.ImageCaptureException
-import androidx.camera.core.ImageProxy
-import androidx.camera.core.Preview
+import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.LifecycleOwner
-import diploma.pr.biovote.data.remote.model.ApiClient
+import androidx.lifecycle.viewmodel.compose.viewModel
+import diploma.pr.biovote.ui.auth.AuthViewModel
+import diploma.pr.biovote.ui.auth.UiState
 import diploma.pr.biovote.utils.CameraUtils
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.ByteArrayOutputStream
 
 @Composable
-fun RegistrationScreen(onRegistered: () -> Unit) {
-    val context = LocalContext.current
-    val lifecycleOwner = context as LifecycleOwner
-    val coroutineScope = rememberCoroutineScope()
+fun RegistrationScreen(
+    onSuccess: () -> Unit
+) {
+    /* ---------- state ---------- */
+    val ctx          = LocalContext.current
+    val vm : AuthViewModel = viewModel()
+    val ui           by vm.state.collectAsState()
 
-    var email by rememberSaveable { mutableStateOf("") }
-    var fullName by rememberSaveable { mutableStateOf("") }
-    var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
-    var cameraProvider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
-    var errorText by remember { mutableStateOf<String?>(null) }
+    var email     by remember { mutableStateOf("") }
+    var fullName  by remember { mutableStateOf("") }
+    var imageCap  by remember { mutableStateOf<ImageCapture?>(null) }
+    var provider  by remember { mutableStateOf<ProcessCameraProvider?>(null) }
+    var err       by remember { mutableStateOf<String?>(null) }
 
-    val permissionLauncher = rememberLauncherForActivityResult(
+    /* ---------- permission ---------- */
+    val camPermLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (!isGranted) {
-            errorText = "Дозвіл на камеру не надано"
-        } else {
-            val future = ProcessCameraProvider.getInstance(context)
-            future.addListener({
-                try {
-                    cameraProvider = future.get()
-                } catch (e: Exception) {
-                    errorText = "Не вдалося ініціалізувати камеру: ${e.message}"
-                }
-            }, ContextCompat.getMainExecutor(context))
+    ) { granted ->
+        if (!granted) err = "Не надано дозвіл на камеру"
+        else ProcessCameraProvider.getInstance(ctx).also {
+            it.addListener({ provider = it.get() }, ContextCompat.getMainExecutor(ctx))
         }
     }
-
     LaunchedEffect(Unit) {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
+        if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA)
             != PackageManager.PERMISSION_GRANTED
-        ) {
-            permissionLauncher.launch(Manifest.permission.CAMERA)
-        } else {
-            val future = ProcessCameraProvider.getInstance(context)
-            future.addListener({
-                try {
-                    cameraProvider = future.get()
-                } catch (e: Exception) {
-                    errorText = "Не вдалося ініціалізувати камеру: ${e.message}"
-                }
-            }, ContextCompat.getMainExecutor(context))
+        ) camPermLauncher.launch(Manifest.permission.CAMERA)
+        else ProcessCameraProvider.getInstance(ctx).also {
+            it.addListener({ provider = it.get() }, ContextCompat.getMainExecutor(ctx))
         }
     }
 
+    /* ---------- UI ---------- */
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
+        Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("Реєстрація", style = MaterialTheme.typography.headlineSmall)
 
-        TextField(
-            value = email,
-            onValueChange = { email = it },
-            label = { Text("Email") },
+        OutlinedTextField(
+            value = email, onValueChange = { email = it },
+            label = { Text("E-mail") }, singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        OutlinedTextField(
+            value = fullName, onValueChange = { fullName = it },
+            label = { Text("Повне ім’я") }, singleLine = true,
             modifier = Modifier.fillMaxWidth()
         )
 
-        TextField(
-            value = fullName,
-            onValueChange = { fullName = it },
-            label = { Text("Повне ім'я") },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        cameraProvider?.let { provider ->
+        /* камера */
+        provider?.let { pr ->
             AndroidView(
-                factory = { ctx ->
-                    val previewView = PreviewView(ctx)
+                factory = {
+                    val pv = PreviewView(it)
                     val preview = Preview.Builder().build().apply {
-                        setSurfaceProvider(previewView.surfaceProvider)
+                        setSurfaceProvider(pv.surfaceProvider)
                     }
                     val capture = ImageCapture.Builder().build()
-                    imageCapture = capture
+                    imageCap = capture
 
-                    val selector = CameraSelector.DEFAULT_FRONT_CAMERA
-                    provider.unbindAll()
-                    provider.bindToLifecycle(lifecycleOwner, selector, preview, capture)
-
-                    previewView
+                    pr.unbindAll()
+                    pr.bindToLifecycle(
+                        it as androidx.lifecycle.LifecycleOwner,
+                        CameraSelector.DEFAULT_FRONT_CAMERA,
+                        preview, capture
+                    )
+                    pv
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(300.dp)
+                modifier = Modifier.fillMaxWidth().height(280.dp)
             )
         }
 
+        /* кнопка */
         Button(
             onClick = {
-                val capture = imageCapture
-                if (capture == null) {
-                    errorText = "Камера не готова"
-                    return@Button
-                }
-
-                capture.takePicture(
-                    ContextCompat.getMainExecutor(context),
+                val cap = imageCap ?: return@Button.also { err = "Камера не готова" }
+                cap.takePicture(
+                    ContextCompat.getMainExecutor(ctx),
                     object : ImageCapture.OnImageCapturedCallback() {
-                        override fun onCaptureSuccess(image: ImageProxy) {
-                            val bitmap = CameraUtils.imageProxyToBitmap(image)
-                            image.close()
+                        override fun onCaptureSuccess(img: ImageProxy) {
+                            val bmp = CameraUtils.imageProxyToBitmap(img)
+                            img.close()
 
-                            val bos = ByteArrayOutputStream()
-                            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, bos)
-                            val imageBytes = bos.toByteArray()
-                            val imageBody = imageBytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
-                            val photoPart = MultipartBody.Part.createFormData("faceImage", "face.jpg", imageBody)
-                            val emailPart = email.toRequestBody("text/plain".toMediaTypeOrNull())
-                            val fullNamePart = fullName.toRequestBody("text/plain".toMediaTypeOrNull())
+                            /* multipart */
+                            val jpg = ByteArrayOutputStream().apply {
+                                bmp.compress(Bitmap.CompressFormat.JPEG, 90, this)
+                            }.toByteArray()
+                            val face = MultipartBody.Part.createFormData(
+                                "faceImage", "face.jpg",
+                                jpg.toRequestBody("image/jpeg".toMediaTypeOrNull())
+                            )
+                            val mail = email.toRequestBody("text/plain".toMediaTypeOrNull())
+                            val name = fullName.toRequestBody("text/plain".toMediaTypeOrNull())
 
-                            coroutineScope.launch(Dispatchers.IO) {
-                                try {
-                                    val response = ApiClient.service.registerUser(
-                                        emailPart, fullNamePart, photoPart
-                                    )
-                                    if (response.isSuccessful) {
-                                        onRegistered()
-                                    } else {
-                                        errorText = "Помилка: ${response.code()}"
-                                    }
-                                } catch (e: Exception) {
-                                    errorText = "Помилка під час запиту: ${e.message}"
-                                }
-                            }
+                            vm.register(mail, name, face)
                         }
-
-                        override fun onError(exception: ImageCaptureException) {
-                            errorText = "Помилка зйомки: ${exception.message}"
+                        override fun onError(e: ImageCaptureException) {
+                            err = "Фото не зроблено: ${e.message}"
                         }
                     }
                 )
             },
+            enabled = ui !is UiState.Loading,
             modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Зареєструватися")
-        }
+        ) { Text("Зареєструватися") }
 
-        errorText?.let {
-            Text(it, color = MaterialTheme.colorScheme.error)
+        /* статус */
+        when (ui) {
+            is UiState.Error   -> err = (ui as UiState.Error).msg
+            is UiState.Success -> LaunchedEffect(Unit) { onSuccess() }
+            else               -> {}
         }
+        err?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     }
 }

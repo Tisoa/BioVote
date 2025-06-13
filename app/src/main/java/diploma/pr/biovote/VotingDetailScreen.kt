@@ -1,4 +1,4 @@
-package diploma.pr.biovote.ui.voting
+package diploma.pr.biovote
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -20,6 +20,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import diploma.pr.biovote.data.remote.model.ApiClient
 import diploma.pr.biovote.data.remote.model.requests.VoteRequest
+import diploma.pr.biovote.utils.BioVoteApplication
 import diploma.pr.biovote.utils.CameraUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

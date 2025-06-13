@@ -1,27 +1,37 @@
 package diploma.pr.biovote.data.remote.model
 
+import android.util.Log
+import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 object ApiClient {
-    // On the Android emulator, 10.0.2.2 routes to your host machine
-    private const val BASE_URL = "http://10.0.2.2:8081/"
 
-    private val logging = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BODY
-    }
+    /** 👉  IP+порт Spring-бекенду.  */
+    private const val BASE_URL = "http://192.168.31.190:8081/"
 
+    /** кастомний logger: не виводимо «сміття» з multipart-тіла (jpg) */
+    private fun httpLogger() = HttpLoggingInterceptor { msg ->
+        if (msg.startsWith("--")      /* boundary */
+            || msg.startsWith("���")  /* початок jpeg */
+        ) return@HttpLoggingInterceptor
+        Log.d("HTTP", msg)
+    }.apply { level = HttpLoggingInterceptor.Level.BODY }
+
+    /** один-єдиний OkHttp */
     private val okHttp = OkHttpClient.Builder()
-        .addInterceptor(logging)
+        .addInterceptor(httpLogger())
         .build()
 
-    // Expose your ApiService as "service"
-    val service: ApiService = Retrofit.Builder()
-        .baseUrl(BASE_URL)
-        .client(okHttp)
-        .addConverterFactory(GsonConverterFactory.create())
-        .build()
-        .create(ApiService::class.java)
+    /** Retrofit-service – використовуємо всюди */
+    val service: ApiService by lazy {
+        Retrofit.Builder()
+            .baseUrl(BASE_URL)
+            .client(okHttp)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(ApiService::class.java)
+    }
 }
