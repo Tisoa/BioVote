@@ -1,23 +1,30 @@
 package diploma.pr.biovote.data.repository
 
 import diploma.pr.biovote.data.remote.model.ApiClient
+import diploma.pr.biovote.data.remote.model.requests.VoteRequest
 import diploma.pr.biovote.data.remote.model.responses.Poll
-import diploma.pr.biovote.data.remote.model.responses.PollsResponse
 import retrofit2.HttpException
-import java.io.IOException
+import javax.inject.Inject
 
-class PollRepository(
-    private val api: diploma.pr.biovote.data.remote.model.ApiService = ApiClient.service
-) {
+class PollRepository @Inject constructor() {
     suspend fun polls(token: String): Result<List<Poll>> = runCatching {
-        val r = api.getPolls("Bearer $token")
-        if (!r.isSuccessful) throw HttpException(r)
-        (r.body() ?: PollsResponse(false,"", emptyList())).polls
-    }.recoverCatching {
-        when (it) {
-            is IOException  -> error("Немає мережі")
-            is HttpException-> error("HTTP ${it.code()}")
-            else            -> throw it
+        val resp = ApiClient.service.getAllPolls("Bearer $token")
+        if (resp.isSuccessful) {
+            resp.body()?.polls.orEmpty()
+        } else {
+            throw HttpException(resp)
         }
+    }
+
+    suspend fun pollDetail(token: String, pollId: Long): Result<Poll> = runCatching {
+        val resp = ApiClient.service.getPoll(pollId, "Bearer $token")
+        if (!resp.isSuccessful) throw HttpException(resp)
+        val wrapper = resp.body() ?: error("Empty body")
+        wrapper.polls.firstOrNull() ?: error("Poll #$pollId not found")
+    }
+
+    suspend fun submitVote(token: String, req: VoteRequest): Result<Unit> = runCatching {
+        val resp = ApiClient.service.submitVote("Bearer $token", req)
+        if (!resp.isSuccessful) throw HttpException(resp)
     }
 }

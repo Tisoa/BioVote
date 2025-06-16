@@ -1,91 +1,90 @@
-package diploma.pr.biovote
+// app/src/main/java/diploma/pr/biovote/ui/auth/RegistrationScreen.kt
+package diploma.pr.biovote.ui.auth
 
-/* ---------- Android / Compose ---------- */
 import android.Manifest
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.camera.core.*
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
+import androidx.camera.core.ImageProxy
+import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.viewmodel.compose.viewModel
-
-/* ---------- project ---------- */
-import diploma.pr.biovote.data.local.TokenManager
-import diploma.pr.biovote.ui.auth.AuthViewModel
-import diploma.pr.biovote.ui.auth.UiState
+import androidx.hilt.navigation.compose.hiltViewModel
 import diploma.pr.biovote.utils.CameraUtils
-
-/* ---------- network ---------- */
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
-
-/* ---------- utils ---------- */
-import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RegistrationScreen(
-    onSuccess: () -> Unit          // колбек навігації ― коли все ок
-) {
-    /* ---------- DI → ViewModel з TokenManager ---------- */
+fun RegistrationScreen(onSuccess: () -> Unit) {
     val ctx = LocalContext.current
-    val vm: AuthViewModel = viewModel(
-        factory = object : ViewModelProvider.Factory {
-            @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(c: Class<T>): T =
-                AuthViewModel(TokenManager(ctx)) as T
-        }
-    )
-    val ui by vm.state.collectAsState()
+    val vm: AuthViewModel = hiltViewModel()
+    val uiState by vm.state.collectAsState()
 
-    /* ---------- local-state ---------- */
-    var email      by remember { mutableStateOf("") }
-    var fullName   by remember { mutableStateOf("") }
-    var err        by remember { mutableStateOf<String?>(null) }
+    var email    by remember { mutableStateOf("") }
+    var fullName by remember { mutableStateOf("") }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
 
-    var imageCap   by remember { mutableStateOf<ImageCapture?>(null) }
-    var camProvider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
+    var camProv by remember { mutableStateOf<ProcessCameraProvider?>(null) }
+    var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
 
-    /* ---------- permission flow ---------- */
-    val camPermLauncher = rememberLauncherForActivityResult(
+    val permLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        if (!granted) err = "Потрібен дозвіл на камеру"
-        else ProcessCameraProvider.getInstance(ctx).also { f ->
-            f.addListener({ camProvider = f.get() }, ContextCompat.getMainExecutor(ctx))
+        if (!granted) {
+            errorMsg = "Нема дозволу на камеру"
+        } else {
+            ProcessCameraProvider.getInstance(ctx).also { f ->
+                f.addListener({ camProv = f.get() }, ContextCompat.getMainExecutor(ctx))
+            }
         }
     }
+
     LaunchedEffect(Unit) {
         if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA)
             != PackageManager.PERMISSION_GRANTED
-        ) camPermLauncher.launch(Manifest.permission.CAMERA)
+        ) permLauncher.launch(Manifest.permission.CAMERA)
         else ProcessCameraProvider.getInstance(ctx).also { f ->
-            f.addListener({ camProvider = f.get() }, ContextCompat.getMainExecutor(ctx))
+            f.addListener({ camProv = f.get() }, ContextCompat.getMainExecutor(ctx))
         }
     }
 
-    /* ---------- UI ---------- */
-    val scroll = rememberScrollState()
-
     Column(
-        modifier = Modifier
+        Modifier
             .fillMaxSize()
-            .verticalScroll(scroll)
+            .verticalScroll(rememberScrollState())
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -107,92 +106,83 @@ fun RegistrationScreen(
             modifier = Modifier.fillMaxWidth()
         )
 
-        /* ---------- Camera preview (внизу форми) ---------- */
-        camProvider?.let { provider ->
-            AndroidView(
-                factory = { context ->
-                    val pv = PreviewView(context)
-                    val preview = Preview.Builder().build().apply {
-                        setSurfaceProvider(pv.surfaceProvider)
-                    }
-                    val capture = ImageCapture.Builder().build()
-                    imageCap = capture
+        errorMsg?.let {
+            Text(it, color = MaterialTheme.colorScheme.error)
+        }
 
-                    provider.unbindAll()
-                    provider.bindToLifecycle(
-                        context as androidx.lifecycle.LifecycleOwner,
-                        CameraSelector.DEFAULT_FRONT_CAMERA,
-                        preview,
-                        capture
-                    )
-                    pv
+        camProv?.let { provider ->
+            AndroidView(
+                factory = { ctxView ->
+                    PreviewView(ctxView).apply {
+                        val preview = Preview.Builder().build().also {
+                            it.setSurfaceProvider(surfaceProvider)
+                        }
+                        val capture = ImageCapture.Builder().build()
+                        imageCapture = capture
+                        provider.unbindAll()
+                        provider.bindToLifecycle(
+                            ctxView as androidx.lifecycle.LifecycleOwner,
+                            CameraSelector.DEFAULT_FRONT_CAMERA,
+                            preview,
+                            capture
+                        )
+                    }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(280.dp)
+                    .height(500.dp)
             )
         }
 
-        /* ---------- submit ---------- */
-        val scope = rememberCoroutineScope()
+        Spacer(Modifier.height(8.dp))
+
         Button(
-            enabled = ui !is UiState.Loading,
-            modifier = Modifier.fillMaxWidth(),
             onClick = {
-                /* валідація */
                 if (email.isBlank() || fullName.isBlank()) {
-                    err = "Заповніть e-mail та ім’я"
+                    errorMsg = "Заповніть усі поля"
                     return@Button
                 }
-                val cap = imageCap ?: return@Button.also {
-                    err = "Камера ще не готова"
+                val cap = imageCapture ?: run {
+                    errorMsg = "Камера не готова"; return@Button
                 }
-
-                /* робимо фото */
                 cap.takePicture(
                     ContextCompat.getMainExecutor(ctx),
                     object : ImageCapture.OnImageCapturedCallback() {
                         override fun onCaptureSuccess(image: ImageProxy) {
-                            /* bitmap → jpeg → MultipartBody.Part */
                             val bmp = CameraUtils.imageProxyToBitmap(image)
                             image.close()
-
-                            val jpgBytes = ByteArrayOutputStream().apply {
+                            val bytes = ByteArrayOutputStream().apply {
                                 bmp.compress(Bitmap.CompressFormat.JPEG, 90, this)
                             }.toByteArray()
-
-                            val facePart = MultipartBody.Part.createFormData(
+                            val part = MultipartBody.Part.createFormData(
                                 "faceImage",
                                 "face.jpg",
-                                jpgBytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
+                                bytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
                             )
-
-                            scope.launch {
-                                /* AuthViewModel: реєструємося + логінимося */
-                                vm.registerAndLogin(
-                                    email.trim(),
-                                    fullName.trim(),
-                                    facePart
-                                )
-                            }
+                            vm.registerAndLogin(email.trim(), fullName.trim(), part)
                         }
 
                         override fun onError(exc: ImageCaptureException) {
-                            err = "Не вдалося зробити фото: ${exc.message}"
+                            errorMsg = "Не зроблено фото: ${exc.message}"
                         }
                     }
                 )
-            }
-        ) { Text(if (ui is UiState.Loading) "Зачекайте…" else "Зареєструватися") }
-
-        /* ---------- feedback ---------- */
-        when (ui) {
-            is UiState.Success -> LaunchedEffect(Unit) { onSuccess() }
-            is UiState.Error   -> err = (ui as UiState.Error).msg
-            else               -> {}
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = uiState !is UiState.Loading
+        ) {
+            Text(
+                if (uiState is UiState.Loading) "Зачекайте…"
+                else "Зареєструватися"
+            )
         }
-        err?.let {
-            Text(it, color = MaterialTheme.colorScheme.error)
+
+        LaunchedEffect(uiState) {
+            when (uiState) {
+                is UiState.Success -> onSuccess()
+                is UiState.Error   -> errorMsg = (uiState as UiState.Error).msg
+                else               -> { /* no-op */ }
+            }
         }
     }
 }

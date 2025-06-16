@@ -2,16 +2,17 @@ package diploma.pr.biovote.ui.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
 import diploma.pr.biovote.data.local.TokenManager
-import diploma.pr.biovote.data.remote.model.AuthResponse        // /auth/face_login
-import diploma.pr.biovote.data.remote.model.RegisterResponse    // /auth/register
+import diploma.pr.biovote.data.remote.model.AuthResponse
 import diploma.pr.biovote.data.repository.AuthRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import okhttp3.MultipartBody
+import javax.inject.Inject
 
-/* ---------- Ui-state ---------- */
+/* ---------- UI-state ---------- */
 sealed interface UiState<out T> {
     object Idle                       : UiState<Nothing>
     object Loading                    : UiState<Nothing>
@@ -20,18 +21,18 @@ sealed interface UiState<out T> {
 }
 
 /* ---------- ViewModel ---------- */
-class AuthViewModel(
-    private val tokenStore: TokenManager,
-    private val repo: AuthRepository = AuthRepository()
+@HiltViewModel
+class AuthViewModel @Inject constructor(
+    private val repo: AuthRepository,
+    private val tokenMgr: TokenManager
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<UiState<Unit>>(UiState.Idle)
-    val  state : StateFlow<UiState<Unit>> = _state
+    val state: StateFlow<UiState<Unit>> = _state
 
     /**
-     * 1️⃣  Реєструємо користувача
-     * 2️⃣  У будь-якому випадку пробуємо Face-login
-     *     (якщо обліковка вже існує, бекенд повертає success =false → це не помилка)
+     * 1️⃣  /auth/register — створюємо акаунт (success=false ⇒ уже існує, і це OK)
+     * 2️⃣  /auth/face_login — отримуємо JWT та зберігаємо
      */
     fun registerAndLogin(
         email: String,
@@ -40,17 +41,16 @@ class AuthViewModel(
     ) = viewModelScope.launch {
         _state.value = UiState.Loading
 
-        /* ---- 1. спроба /auth/register ---- */
+        /* ---- 1. спроба зареєструвати ---- */
         val regResp = repo.register(email, fullName, facePart)
         if (!regResp.isSuccessful) {
             _state.value = UiState.Error("Registration HTTP ${regResp.code()}")
             return@launch
         }
+        // Тіло відповіді може бути success=false, якщо акаунт уже є
+        regResp.body() ?: Unit  // регBody не використовується далі
 
-        // нам важливий лише факт наявності акаунта; success==false → вже є
-        val regBody: RegisterResponse? = regResp.body()
-
-        /* ---- 2. /auth/face_login ---- */
+        /* ---- 2. Face-login ---- */
         val logResp = repo.login(email, facePart)
         if (!logResp.isSuccessful) {
             _state.value = UiState.Error("Login HTTP ${logResp.code()}")
@@ -58,14 +58,13 @@ class AuthViewModel(
         }
 
         val logBody: AuthResponse? = logResp.body()
-        if (logBody?.success == true && logBody.message.isNotBlank()) {
-            saveToken(logBody.message)                     // ⬅️  JWT з поля message
-            _state.value = UiState.Success(Unit)           // 🎉  готово
+        val token = logBody?.takeIf { it.success }?.message.orEmpty()
+
+        if (token.isNotBlank()) {
+            tokenMgr.saveToken(token)
+            _state.value = UiState.Success(Unit)           // 🎉 успіх
         } else {
             _state.value = UiState.Error("Сервер не надав токен")
         }
     }
-
-    /* ---------- helpers ---------- */
-    private fun saveToken(token: String) = tokenStore.saveToken(token)
 }
