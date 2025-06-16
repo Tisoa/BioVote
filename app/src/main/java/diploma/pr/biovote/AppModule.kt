@@ -1,3 +1,4 @@
+// app/src/main/java/diploma/pr/biovote/AppModule.kt
 package diploma.pr.biovote
 
 import android.content.Context
@@ -7,6 +8,9 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import diploma.pr.biovote.data.local.TokenManager
+import diploma.pr.biovote.data.remote.model.ApiClient
+import diploma.pr.biovote.data.remote.model.ApiService
+import diploma.pr.biovote.data.repository.AuthRepository
 import diploma.pr.biovote.data.repository.PollRepository
 import javax.inject.Singleton
 
@@ -14,15 +18,19 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object AppModule {
 
-    @Provides
-    @Singleton
-    fun provideTokenManager(@ApplicationContext context: Context): TokenManager {
-        return TokenManager(context)
-    }
+    @Provides @Singleton
+    fun provideApiService(): ApiService =
+        ApiClient.service
 
-    @Provides
-    @Singleton
-    fun providePollRepository(): PollRepository {
-        return PollRepository()
-    }
+    @Provides @Singleton
+    fun provideTokenManager(@ApplicationContext ctx: Context): TokenManager =
+        TokenManager(ctx)
+
+    @Provides @Singleton
+    fun provideAuthRepo(api: ApiService): AuthRepository =
+        AuthRepository(api)
+
+    @Provides @Singleton
+    fun providePollRepo(api: ApiService): PollRepository =
+        PollRepository(api)
 }

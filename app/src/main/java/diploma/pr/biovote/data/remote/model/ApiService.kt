@@ -16,16 +16,14 @@ import retrofit2.http.Path
 
 interface ApiService {
 
-    // —— face‐registration needs @Part("username"), not "email" ——
     @Multipart
     @POST("auth/register")
     suspend fun registerUser(
         @Part("username")   username: RequestBody,
         @Part("fullName")   fullName:  RequestBody,
-        @Part                face:      MultipartBody.Part
+        @Part               face:      MultipartBody.Part
     ): Response<RegisterResponse>
 
-    // —— face‐login likewise ——
     @Multipart
     @POST("auth/face_login")
     suspend fun loginUserByFace(
@@ -33,7 +31,6 @@ interface ApiService {
         @Part             face:     MultipartBody.Part
     ): Response<AuthResponse>
 
-    // —— your polls API stays the same ——
     @GET("polls")
     suspend fun getAllPolls(
         @Header("Authorization") auth: String
@@ -45,18 +42,18 @@ interface ApiService {
         @Header("Authorization") auth: String
     ): Response<PollsResponse>
 
+    @Multipart
+    @POST("polls/{id}/vote")
+    suspend fun submitVoteWithProof(
+        @Header("Authorization") auth: String,
+        @Path("id") pollId: Long,
+        @Part("vote") vote: VoteRequest,
+        @Part proof: MultipartBody.Part
+    ): Response<Unit>
+
     @POST("polls/vote")
     suspend fun submitVote(
         @Header("Authorization") auth: String,
         @Body                    req: VoteRequest
-    ): Response<Void>
-
-    @Multipart
-    @POST("polls/vote-with-proof")
-    suspend fun submitVoteWithProof(
-        @Header("Authorization") auth: String,
-        @Part("pollId")        pollPart:    RequestBody,
-        @Part("answerIds")     answersPart: RequestBody,
-        @Part                  faceImage:   MultipartBody.Part
     ): Response<Void>
 }

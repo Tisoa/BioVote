@@ -1,5 +1,5 @@
 // app/src/main/java/diploma/pr/biovote/ui/auth/RegistrationScreen.kt
-package diploma.pr.biovote.ui.auth
+package diploma.pr.biovote
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -40,6 +40,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.LifecycleOwner
+import diploma.pr.biovote.ui.auth.AuthViewModel
+import diploma.pr.biovote.ui.auth.UiState
 import diploma.pr.biovote.utils.CameraUtils
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
@@ -121,7 +124,7 @@ fun RegistrationScreen(onSuccess: () -> Unit) {
                         imageCapture = capture
                         provider.unbindAll()
                         provider.bindToLifecycle(
-                            ctxView as androidx.lifecycle.LifecycleOwner,
+                            ctxView as LifecycleOwner,
                             CameraSelector.DEFAULT_FRONT_CAMERA,
                             preview,
                             capture
@@ -180,8 +183,11 @@ fun RegistrationScreen(onSuccess: () -> Unit) {
         LaunchedEffect(uiState) {
             when (uiState) {
                 is UiState.Success -> onSuccess()
-                is UiState.Error   -> errorMsg = (uiState as UiState.Error).msg
-                else               -> { /* no-op */ }
+                is UiState.Error   -> {
+                    // Error.message is your server/UI‐error text
+                    errorMsg = (uiState as UiState.Error).message
+                }
+                else -> {}
             }
         }
     }

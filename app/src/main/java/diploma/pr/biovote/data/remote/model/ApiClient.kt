@@ -9,8 +9,6 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object ApiClient {
-
-    // change to 10.0.2.2:8081 if you run the backend on the host and use an Android emulator
     private const val BASE_URL = "http://192.168.0.151:8081/"
 
     private fun httpLogger() = HttpLoggingInterceptor { msg ->

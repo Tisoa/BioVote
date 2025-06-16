@@ -1,4 +1,4 @@
-// Question.kt
+// app/src/main/java/diploma/pr/biovote/data/remote/model/responses/Question.kt
 package diploma.pr.biovote.data.remote.model.responses
 
 data class Question(

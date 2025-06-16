@@ -1,4 +1,4 @@
-// PollsResponse.kt  (wrapper для   GET /polls)
+// app/src/main/java/diploma/pr/biovote/data/remote/model/responses/PollsResponse.kt
 package diploma.pr.biovote.data.remote.model.responses
 
 data class PollsResponse(

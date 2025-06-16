@@ -48,112 +48,102 @@ import java.util.UUID
 fun PollDetailScreen(
     pollId: Long,
     onBack: () -> Unit,
-    viewModel: PollDetailViewModel = hiltViewModel()
+    vm: PollDetailViewModel = hiltViewModel()
 ) {
-    // 1️⃣ Observe ViewModel state
-    val poll       by viewModel.poll.collectAsState(initial = null)
-    val isLoading  by viewModel.isLoading.collectAsState(initial = false)
-    val error      by viewModel.error.collectAsState(initial = null)
-    var selectedAnswer by remember { mutableStateOf<Long?>(null) }
-    var photoFile      by remember { mutableStateOf<File?>(null) }
-    val context = LocalContext.current
+    val poll by vm.poll.collectAsState()
+    val loading by vm.isLoading.collectAsState()
+    val error by vm.error.collectAsState()
 
-    // 2️⃣ Camera → JPEG file
-    val photoLauncher = rememberLauncherForActivityResult(
+    var selected by remember { mutableStateOf<Long?>(null) }
+    var photoFile by remember { mutableStateOf<File?>(null) }
+    val ctx = LocalContext.current
+
+    val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.TakePicturePreview()
     ) { bmp: Bitmap? ->
         bmp?.let {
-            val file = File(context.cacheDir, "${UUID.randomUUID()}.jpg")
-            FileOutputStream(file).use { out ->
+            val f = File(ctx.cacheDir, "${UUID.randomUUID()}.jpg")
+            FileOutputStream(f).use { out ->
                 it.compress(Bitmap.CompressFormat.JPEG, 90, out)
             }
-            photoFile = file
-            viewModel.onPhotoReady(file)
+            photoFile = f
+            vm.onPhotoReady(f)
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(text = poll?.name.orEmpty()) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
+    Scaffold(topBar = {
+        TopAppBar(
+            title = { Text(poll?.name.orEmpty()) },
+            navigationIcon = {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                 }
-            )
-        }
-    ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding)) {
-            if (isLoading) {
-                CircularProgressIndicator(Modifier.align(Alignment.Center))
-                return@Box
             }
-
-            error?.let {
-                Text(
-                    text = it,
+        )
+    }) { padding ->
+        Box(
+            Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            when {
+                loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
+                error != null -> Text(
+                    error!!,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.align(Alignment.Center)
                 )
-            }
-
-            poll?.questions?.let { questions ->
-                Column(Modifier.padding(16.dp)) {
-                    questions.forEach { question ->
-                        Text(question.text, style = MaterialTheme.typography.titleMedium)
-                        Spacer(Modifier.height(8.dp))
-
-                        Column(Modifier.selectableGroup()) {
-                            question.answers.forEach { answer ->
+                else -> poll?.questions?.let { qs ->
+                    Column(
+                        Modifier
+                            .padding(16.dp)
+                            .selectableGroup()
+                    ) {
+                        qs.forEach { q ->
+                            Text(q.text, style = MaterialTheme.typography.titleMedium)
+                            Spacer(Modifier.height(8.dp))
+                            q.answers.forEach { a ->
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .selectable(
-                                            selected = (selectedAnswer == answer.id),
-                                            onClick  = { selectedAnswer = answer.id },
-                                            role     = Role.RadioButton
+                                            selected = (selected == a.id),
+                                            onClick = { selected = a.id },
+                                            role = Role.RadioButton
                                         )
                                         .padding(vertical = 4.dp)
                                 ) {
-                                    RadioButton(
-                                        selected = (selectedAnswer == answer.id),
-                                        onClick  = null
-                                    )
+                                    RadioButton(selected = (selected == a.id), onClick = null)
                                     Spacer(Modifier.width(8.dp))
-                                    Text(answer.text)
+                                    Text(a.text)
                                 }
                             }
+                            Spacer(Modifier.height(24.dp))
                         }
-                        Spacer(Modifier.height(24.dp))
-                    }
 
-                    // Proof button
-                    Button(
-                        onClick = { photoLauncher.launch(null) },
-                        enabled = selectedAnswer != null,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(if (photoFile == null) "Proof by Face" else "Retake Photo")
-                    }
-                    Spacer(Modifier.height(12.dp))
+                        Button(
+                            onClick = { launcher.launch(null) },
+                            enabled = selected != null,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(if (photoFile == null) "Proof by Face" else "Retake Photo")
+                        }
+                        Spacer(Modifier.height(12.dp))
 
-                    // Confirm vote
-                    Button(
-                        onClick = {
-                            selectedAnswer?.let { aid ->
-                                photoFile?.let {
-                                    viewModel.submitVoteWithProof(aid) {
-                                        onBack()
+                        Button(
+                            onClick = {
+                                selected?.let { ans ->
+                                    photoFile?.let {
+                                        vm.submitVoteWithProof(ans) { onBack() }
                                     }
                                 }
-                            }
-                        },
-                        enabled = selectedAnswer != null && photoFile != null,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Confirm Vote")
+                            },
+                            enabled = selected != null && photoFile != null,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Confirm Vote")
+                        }
                     }
                 }
             }

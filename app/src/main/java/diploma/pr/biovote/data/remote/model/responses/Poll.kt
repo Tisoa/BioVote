@@ -1,4 +1,4 @@
-// Poll.kt
+// app/src/main/java/diploma/pr/biovote/data/remote/model/responses/Poll.kt
 package diploma.pr.biovote.data.remote.model.responses
 
 data class Poll(
@@ -8,5 +8,7 @@ data class Poll(
     val endDate: String,
     val voted: Boolean,
     val voteCount: Int,
-    val questions: List<Question>? = null // <- це головне!
-)
+    val questions: List<Question> = emptyList()
+) {
+    companion object
+}
