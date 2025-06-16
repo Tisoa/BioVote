@@ -1,6 +1,8 @@
 package diploma.pr.biovote.ui.voting
 
-// for `by … collectAsState(...)`
+import android.graphics.Bitmap
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -32,10 +34,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import diploma.pr.biovote.data.remote.model.responses.Question
 import diploma.pr.biovote.ui.auth.PollDetailViewModel
+import java.io.File
+import java.io.FileOutputStream
+import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,14 +50,32 @@ fun PollDetailScreen(
     onBack: () -> Unit,
     viewModel: PollDetailViewModel = hiltViewModel()
 ) {
-    val poll      by viewModel.poll.collectAsState(initial = null)
-    val isLoading by viewModel.isLoading.collectAsState(initial = false)
-    val questions = poll?.questions.orEmpty()
+    // 1️⃣ Observe ViewModel state
+    val poll       by viewModel.poll.collectAsState(initial = null)
+    val isLoading  by viewModel.isLoading.collectAsState(initial = false)
+    val error      by viewModel.error.collectAsState(initial = null)
+    var selectedAnswer by remember { mutableStateOf<Long?>(null) }
+    var photoFile      by remember { mutableStateOf<File?>(null) }
+    val context = LocalContext.current
+
+    // 2️⃣ Camera → JPEG file
+    val photoLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicturePreview()
+    ) { bmp: Bitmap? ->
+        bmp?.let {
+            val file = File(context.cacheDir, "${UUID.randomUUID()}.jpg")
+            FileOutputStream(file).use { out ->
+                it.compress(Bitmap.CompressFormat.JPEG, 90, out)
+            }
+            photoFile = file
+            viewModel.onPhotoReady(file)
+        }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(poll?.name.orEmpty()) },
+                title = { Text(text = poll?.name.orEmpty()) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -59,76 +83,80 @@ fun PollDetailScreen(
                 }
             )
         }
-    ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
+    ) { padding ->
+        Box(Modifier.fillMaxSize().padding(padding)) {
             if (isLoading) {
-                CircularProgressIndicator(
+                CircularProgressIndicator(Modifier.align(Alignment.Center))
+                return@Box
+            }
+
+            error?.let {
+                Text(
+                    text = it,
+                    color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.align(Alignment.Center)
                 )
-            } else {
-                Column(modifier = Modifier.padding(16.dp)) {
+            }
+
+            poll?.questions?.let { questions ->
+                Column(Modifier.padding(16.dp)) {
                     questions.forEach { question ->
-                        QuestionSection(question) { answerId ->
-                            // submitVote now only takes a List<Long>
-                            viewModel.submitVote(listOf(answerId))
-                            onBack()
+                        Text(question.text, style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(8.dp))
+
+                        Column(Modifier.selectableGroup()) {
+                            question.answers.forEach { answer ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .selectable(
+                                            selected = (selectedAnswer == answer.id),
+                                            onClick  = { selectedAnswer = answer.id },
+                                            role     = Role.RadioButton
+                                        )
+                                        .padding(vertical = 4.dp)
+                                ) {
+                                    RadioButton(
+                                        selected = (selectedAnswer == answer.id),
+                                        onClick  = null
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(answer.text)
+                                }
+                            }
                         }
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(Modifier.height(24.dp))
+                    }
+
+                    // Proof button
+                    Button(
+                        onClick = { photoLauncher.launch(null) },
+                        enabled = selectedAnswer != null,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(if (photoFile == null) "Proof by Face" else "Retake Photo")
+                    }
+                    Spacer(Modifier.height(12.dp))
+
+                    // Confirm vote
+                    Button(
+                        onClick = {
+                            selectedAnswer?.let { aid ->
+                                photoFile?.let {
+                                    viewModel.submitVoteWithProof(aid) {
+                                        onBack()
+                                    }
+                                }
+                            }
+                        },
+                        enabled = selectedAnswer != null && photoFile != null,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Confirm Vote")
                     }
                 }
             }
         }
-    }
-}
-
-@Composable
-fun QuestionSection(
-    question: Question,
-    onSubmit: (Long) -> Unit
-) {
-    var selectedAnswer by remember { mutableStateOf<Long?>(null) }
-
-    Text(
-        text = question.text,
-        style = MaterialTheme.typography.titleMedium
-    )
-    Spacer(modifier = Modifier.height(8.dp))
-
-    Column(Modifier.selectableGroup()) {
-        question.answers.forEach { answer ->
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .selectable(
-                        selected = (selectedAnswer == answer.id),
-                        onClick = { selectedAnswer = answer.id }
-                    )
-                    .padding(vertical = 4.dp)
-            ) {
-                RadioButton(
-                    selected = (selectedAnswer == answer.id),
-                    onClick  = { selectedAnswer = answer.id }
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = answer.text,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-        }
-    }
-
-    Spacer(modifier = Modifier.height(16.dp))
-
-    Button(
-        onClick  = { selectedAnswer?.let(onSubmit) },
-        enabled  = (selectedAnswer != null),
-    ) {
-        Text("Submit Vote")
     }
 }

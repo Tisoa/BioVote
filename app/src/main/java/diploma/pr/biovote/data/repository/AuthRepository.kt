@@ -1,3 +1,4 @@
+// app/src/main/java/diploma/pr/biovote/data/repository/AuthRepository.kt
 package diploma.pr.biovote.data.repository
 
 import diploma.pr.biovote.data.remote.model.ApiClient
@@ -14,27 +15,21 @@ import javax.inject.Singleton
 class AuthRepository @Inject constructor() {
     private val api = ApiClient.service
 
-    /**
-     * Реєстрація нового користувача або повернення помилки
-     */
     suspend fun register(
-        email: String,
+        email:    String,
         fullName: String,
-        face: MultipartBody.Part
+        face:     MultipartBody.Part
     ): Response<RegisterResponse> {
-        val eBody = email.toRequestBody("text/plain".toMediaType())
-        val nBody = fullName.toRequestBody("text/plain".toMediaType())
-        return api.registerUser(eBody, nBody, face)
+        val userBody = email   .toRequestBody("text/plain".toMediaType())
+        val nameBody = fullName.toRequestBody("text/plain".toMediaType())
+        return api.registerUser(userBody, nameBody, face)
     }
 
-    /**
-     * Логін за Face ID
-     */
     suspend fun login(
         email: String,
-        face: MultipartBody.Part
+        face:  MultipartBody.Part
     ): Response<AuthResponse> {
-        val eBody = email.toRequestBody("text/plain".toMediaType())
-        return api.loginUserByFace(eBody, face)
+        val userBody = email.toRequestBody("text/plain".toMediaType())
+        return api.loginUserByFace(userBody, face)
     }
 }

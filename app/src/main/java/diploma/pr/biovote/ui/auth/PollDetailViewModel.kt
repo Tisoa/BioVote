@@ -6,13 +6,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import diploma.pr.biovote.data.local.TokenManager
-import diploma.pr.biovote.data.remote.model.requests.VoteRequest
-import diploma.pr.biovote.data.remote.model.responses.Poll
 import diploma.pr.biovote.data.repository.PollRepository
+import diploma.pr.biovote.data.remote.model.responses.Poll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.util.UUID
+import java.io.File
 import javax.inject.Inject
 
 @HiltViewModel
@@ -22,56 +22,54 @@ class PollDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val pollId: Long = savedStateHandle["pollId"] ?: -1L
+    private val pollId: Long = savedStateHandle["pollId"] ?: error("Missing pollId")
 
     private val _poll = MutableStateFlow<Poll?>(null)
-    val poll: StateFlow<Poll?> = _poll
+    val poll: StateFlow<Poll?> = _poll.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error
+    val error: StateFlow<String?> = _error.asStateFlow()
 
-    private val _voteHash = MutableStateFlow<String?>(null)
-    val voteHash: StateFlow<String?> = _voteHash
+    private val _photoFile = MutableStateFlow<File?>(null)
+    val photoFile: StateFlow<File?> = _photoFile.asStateFlow()
 
     init {
-        loadPoll()
-    }
-
-    private fun loadPoll() {
+        // Load poll immediately
         viewModelScope.launch {
-            Log.d("PollDetailVM", "Loading poll #$pollId…")
             _isLoading.value = true
-            _error.value = null
-
             val token = tokenMgr.getToken().orEmpty()
             repo.pollDetail(token, pollId)
-                .onSuccess { p ->
-                    _poll.value = p
-                    Log.d("PollDetailVM", "Loaded poll: ${p.name}")
+                .onSuccess { dto ->
+                    _poll.value = dto
                 }
                 .onFailure { ex ->
                     _error.value = ex.localizedMessage
-                    Log.e("PollDetailVM", "Error loading poll", ex)
                 }
-
             _isLoading.value = false
         }
     }
 
-    fun submitVote(answerIds: List<Long>) {
-        if (answerIds.isEmpty()) return
+    fun onPhotoReady(file: File) {
+        _photoFile.value = file
+    }
+
+    fun submitVoteWithProof(answerId: Long, onDone: () -> Unit) {
         viewModelScope.launch {
+            _isLoading.value = true
             val token = tokenMgr.getToken().orEmpty()
-            repo.submitVote(token, VoteRequest(pollId, answerIds))
+            val file = _photoFile.value ?: return@launch
+            repo.submitVoteWithProof(token, pollId, answerId, file)
                 .onSuccess {
-                    _voteHash.value = UUID.randomUUID().toString()
+                    Log.d("PollDetailVM", "Vote submitted")
+                    onDone()
                 }
                 .onFailure { ex ->
                     _error.value = ex.localizedMessage
                 }
+            _isLoading.value = false
         }
     }
 }
